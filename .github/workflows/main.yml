@@ -1,0 +1,36 @@
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 10 * * *"
+  push:
+    branches: [ master ]
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/cache@v2
+        id: cache
+        with:
+          path: /home/runner/go/bin/nuclei
+          key: ${{ runner.os }}-${{ hashFiles('/home/runner/go/bin/nuclei') }}
+
+      - uses: projectdiscovery/nuclei-action@main
+        with:
+          urls: "urls.txt"
+          templates: "nuclei-templates"
+          output: "nuclei.log"
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: nuclei.log
+          path: nuclei.log
+      - name: Nuclei Scan Uploading Started
+        run: |
+          res=$(curl --upload-file nuclei.log https://transfer.sh/logs.txt)
+          curl "https://api.telegram.org/bot$BOT_TOKEN/sendMessage?chat_id=$CHAT_ID&parse_mode=Markdown&text=$res" > /dev/null
+        env:
+          BOT_TOKEN: ${{secrets.BOT_TOKEN}}
+          CHAT_ID: ${{secrets.CHAT_ID}}
